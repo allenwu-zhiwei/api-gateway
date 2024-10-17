@@ -2,10 +2,7 @@ package com.nusiss.apigateway.filter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nusiss.apigateway.entity.User;
 import com.nusiss.apigateway.exception.CustomException;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -15,14 +12,12 @@ import org.springframework.http.*;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 
@@ -34,6 +29,7 @@ public class TokenAuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         ServerHttpResponse response = exchange.getResponse();
         String uri = request.getPath().toString();
+        String method = exchange.getRequest().getMethod().toString();
         //all requests need to validate except for /validateUserAndPassword and /login
         if(!uri.contains("/validateUserAndPassword")
                 && !uri.contains("/login")
@@ -49,12 +45,53 @@ public class TokenAuthenticationFilter implements GlobalFilter, Ordered {
                 //throw new RuntimeException(e);
                 return handleException(response, e);
             }
+            // Check if the user has permission to access the requested API
+            boolean hasPermission = false;
+            try {
+                //hasPermission = permission(token, uri, method);
+                //set to true for testing
+                hasPermission = true;
+                //if has no permission
+                if (!hasPermission) {
+                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                    throw new CustomException("No permission for the url: "+uri);
+                }
+            } catch (Exception e) {
+                return handleException(response, e);
+            }
         }
-
-
 
         // If token is valid, proceed to the next filter in the chain
         return chain.filter(exchange);
+    }
+
+    private boolean permission(String token, String url, String method) throws Exception {
+        RestTemplate restTemplate = new RestTemplate();
+        StringBuffer fullurl = new StringBuffer("http://localhost:8084/permission?url=");
+        fullurl.append(url).append("&method=").append(method);
+
+        // Create headers
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.add("authToken", token);
+
+        // Create the request body
+        /*Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("authToken", token);*/
+
+        // Create the HttpEntity object containing headers and the body
+        HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(headers);
+
+        // Send the POST request
+        ResponseEntity<Boolean> response = restTemplate.exchange(
+                fullurl.toString(),
+                HttpMethod.GET,
+                requestEntity,
+                new ParameterizedTypeReference<Boolean>() {}
+        );
+        Boolean isValidated = response.getBody();
+
+        return isValidated;
     }
 
     private Mono<Void>  handleException(ServerHttpResponse response, Exception ex) {
