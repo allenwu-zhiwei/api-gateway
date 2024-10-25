@@ -7,6 +7,6 @@ spec:
   selector:
     app: api-gateway
   ports:
-    - port: 8761
-      targetPort: 8761
-      nodePort: 30061
+    - port: 8070
+      targetPort: 8070
+      nodePort: 30070
