@@ -120,7 +120,7 @@ public class TokenAuthenticationFilter implements GlobalFilter, Ordered {
 
     private boolean validateToken(String token) throws Exception {
         RestTemplate restTemplate = new RestTemplate();
-        String url = "http://localhost:8084/validateToken";
+        String url = "http://nusmall.com:8084/validateToken";
 
         // Create headers
         HttpHeaders headers = new HttpHeaders();
